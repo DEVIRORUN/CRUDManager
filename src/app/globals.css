@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+body {
+  background-color: black;
+  --background: #000;
+  --foreground: #fff;
+}
+
+.input {
+  background-color: white;
+  color: black;
+}
+
+.but {
+  @apply bg-black text-white font-bold py-2 px-4 rounded;
+}
+
+.but:hover {
+  @apply bg-white text-black cursor-pointer outline outline-white;
+}
