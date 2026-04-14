@@ -2,7 +2,7 @@
 
 import { supabase } from "@/src/supabase-client";
 import { Session } from "@supabase/supabase-js";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface Task {
   id: number;
@@ -22,6 +22,8 @@ export default function TaskManagerCrud({ session }: { session: Session }) {
 
   const [taskImage, setTaskImage] = useState<File | null>(null); // State to hold the uploaded image file
 
+  const formRef = useRef<HTMLFormElement>(null);
+
   // 2. The FETCH function (Your image logic, snippet style)
   const fetchTasks = async () => {
     setIsLoading(true);
@@ -29,7 +31,7 @@ export default function TaskManagerCrud({ session }: { session: Session }) {
       const { data, error } = await supabase
         .from("tasks")
         .select("*")
-        .order("created_at", { ascending: true });
+        .order("created_at", { ascending: false });
 
       if (error) {
         console.error("Error reading tasks:", error.message);
@@ -107,48 +109,48 @@ export default function TaskManagerCrud({ session }: { session: Session }) {
     return publicUrl;
   }
 
-async function handleAddTask(formData: FormData) {
-  const title = formData.get("title") as string;
-  const description = formData.get("description") as string;
-  const taskImage = formData.get("image") as File | null;
+  async function handleAddTask(formData: FormData) {
+    const title = formData.get("title") as string;
+    const description = formData.get("description") as string;
+    const taskImage = formData.get("image") as File | null;
 
-  // 1. Mandatory Check: If no image, stop immediately
-  if (!taskImage || taskImage.size === 0) {
-    alert("Please select an image! (Required)");
-    return;
-  }
-
-  setIsAdding(true);
-
-  try {
-    // 2. Upload the image
-    const imageUrl = await uploadImage(taskImage);
-
-    // 3. Check if upload actually gave us a URL
-    if (!imageUrl) {
-      throw new Error("Image upload failed. Please try again.");
+    // 1. Mandatory Check: If no image, stop immediately
+    if (!taskImage || taskImage.size === 0) {
+      alert("Please select an image! (Required)");
+      return;
     }
 
-    // 4. Insert into DB (Now we are 100% sure imageUrl is NOT null)
-    const { error } = await supabase.from("tasks").insert({
-      title,
-      description,
-      image_url: imageUrl,
-      email: session?.user?.email,
-    });
+    setIsAdding(true);
 
-    if (error) throw error;
+    try {
+      // 2. Upload the image
+      const imageUrl = await uploadImage(taskImage);
 
-    // Success! Clear the file state if you are using it
-    setTaskImage(null);
+      // 3. Check if upload actually gave us a URL
+      if (!imageUrl) {
+        throw new Error("Image upload failed. Please try again.");
+      }
 
-  } catch (error: any) {
-    console.error("Error adding task:", error.message);
-    alert("Failed to add task: " + error.message);
-  } finally {
-    setIsAdding(false);
+      // 4. Insert into DB (Now we are 100% sure imageUrl is NOT null)
+      const { error } = await supabase.from("tasks").insert({
+        title,
+        description,
+        image_url: imageUrl,
+        email: session?.user?.email,
+      });
+
+      if (error) throw error;
+
+      // Success! Clear the file state if you are using it
+      formRef.current?.reset(); // This clears all inputs (text and file!)
+      setTaskImage(null);
+    } catch (error: any) {
+      console.error("Error adding task:", error.message);
+      alert("Failed to add task: " + error.message);
+    } finally {
+      setIsAdding(false);
+    }
   }
-}
 
   useEffect(() => {
     // 1. Initial Fetch
@@ -165,7 +167,7 @@ async function handleAddTask(formData: FormData) {
             const newTask = payload.new as Task;
             // Only add if it's not already in our list (prevents duplicates)
             setTasks((prev) =>
-              prev.some((t) => t.id === newTask.id) ? prev : [...prev, newTask],
+              prev.some((t) => t.id === newTask.id) ? prev : [newTask, ...prev],
             );
           } else if (payload.eventType === "DELETE") {
             setTasks((prev) => prev.filter((t) => t.id !== payload.old.id));
@@ -194,18 +196,30 @@ async function handleAddTask(formData: FormData) {
       <h1 className="text-white font-bold mb-4 text-center">
         Task Manager CRUD
       </h1>
+      <p className="text-white text-sm font-semibold italic justify-self-center">
+        All Input are required!
+      </p>
 
       {/* FIX: Use curly braces for the function variable */}
-      <form className="space-y-4 p-2" action={handleAddTask}>
+      <form 
+        ref={formRef} 
+        className="space-y-4 p-2" 
+        onSubmit={async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.currentTarget);
+            await handleAddTask(formData);
+        }}
+        >
         <div>
           <label
-            className="text-white block text-sm font-medium mb-1"
+            className="disabled:opacity-50 text-white block text-sm font-medium mb-1"
             htmlFor="title"
           >
             Title:
           </label>
           <input
-            className="text-white w-full px-4 py-2 border border-gray-600 rounded-lg bg-gray-700 focus:ring-2 focus:ring-white outline-none"
+            disabled={isAdding}
+            className="disabled:opacity-50 text-white w-full px-4 py-2 border border-gray-600 rounded-lg bg-gray-700 focus:ring-2 focus:ring-white outline-none"
             type="text"
             name="title"
             id="title"
@@ -216,13 +230,14 @@ async function handleAddTask(formData: FormData) {
 
         <div>
           <label
-            className="text-white block text-sm font-medium mb-1"
+            className="disabled:opacity-50 text-white block text-sm font-medium mb-1"
             htmlFor="description"
           >
             Description:
           </label>
           <input
-            className="text-white w-full px-4 py-2 border border-gray-600 rounded-lg bg-gray-700 focus:ring-2 focus:ring-white outline-none"
+            disabled={isAdding}
+            className="disabled:opacity-50 text-white w-full px-4 py-2 border border-gray-600 rounded-lg bg-gray-700 focus:ring-2 focus:ring-white outline-none"
             type="text"
             name="description"
             id="description"
@@ -233,15 +248,17 @@ async function handleAddTask(formData: FormData) {
         {isAdding ? (
           <button
             disabled
-            className="but w-full py-2 bg-white text-black font-bold rounded-lg"
-            type="submit"
+            className="w-full py-2 bg-gray-400 text-black font-bold rounded-lg flex items-center justify-center gap-2"
+            type="button"
           >
-            Add Task
+            {/* This div is the actual spinner */}
+            <div className="w-5 h-5 border-2 justify-self-center border-black border-t-white rounded-full animate-spin"></div>
           </button>
         ) : (
           <>
             <input
-              className="w-[300px] text-white cursor-pointer px-4 py-2 border border-gray-600 rounded-lg bg-gray-700 focus:ring-2 focus:ring-white outline-none"
+              disabled={isAdding}
+              className="disabled:opacity-50 w-full text-white cursor-pointer px-4 py-2 border border-gray-600 rounded-lg bg-gray-700 focus:ring-2 focus:ring-white outline-none"
               type="file"
               accept="image/*"
               name="image"
@@ -249,7 +266,7 @@ async function handleAddTask(formData: FormData) {
             />
 
             <button
-              className="but w-full py-2 bg-white text-black font-bold rounded-lg"
+              className="but w-full py-2 bg-white text-black font-bold rounded-lg mt-2"
               type="submit"
             >
               Add Task
@@ -281,6 +298,11 @@ async function handleAddTask(formData: FormData) {
 
                 {editingId === task.id ? (
                   <div className="flex flex-col gap-2 w-full">
+                    <img
+                      src={task.image_url}
+                      alt={task.title}
+                      className="rounded shadow-md my-2"
+                    />
                     <textarea
                       id={`edit-${task.id}`}
                       className="p-2 bg-gray-700 text-white rounded mt-2"
@@ -313,7 +335,11 @@ async function handleAddTask(formData: FormData) {
                     <p className="text-gray-400 text-sm text-center">
                       {task.description}
                     </p>
-                    <img src={task.image_url} alt={task.title} className="rounded shadow-md my-2"/>
+                    <img
+                      src={task.image_url}
+                      alt={task.title}
+                      className="rounded shadow-md my-2"
+                    />
                     <div className="actions flex gap-2 mt-2">
                       <button
                         onClick={() => setEditingId(task.id)}
