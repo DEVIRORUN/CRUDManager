@@ -1,6 +1,7 @@
 import "./globals.css";
 // import { ClerkProvider } from "@clerk/nextjs";
 // import { Navigation } from "@/src/components/navigation"
+import { Analytics } from "@vercel/analytics/next"
 
 export const metadata = {
   title: 'Next.js',
@@ -17,6 +18,7 @@ export default function RootLayout({
         <body className="grid min-h-screen flex flex-col">
           <div className="grid min-h-full">
             {children}
+            <Analytics/>
           </div>
           <footer className="bg-black text-white w-full text-2xl my-2 font-bold grid">
             <p className="justify-self-center self-center">Footer</p>

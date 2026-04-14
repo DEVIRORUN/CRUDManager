@@ -201,15 +201,15 @@ export default function TaskManagerCrud({ session }: { session: Session }) {
       </p>
 
       {/* FIX: Use curly braces for the function variable */}
-      <form 
-        ref={formRef} 
-        className="space-y-4 p-2" 
+      <form
+        ref={formRef}
+        className="space-y-4 p-2"
         onSubmit={async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.currentTarget);
-            await handleAddTask(formData);
+          e.preventDefault();
+          const formData = new FormData(e.currentTarget);
+          await handleAddTask(formData);
         }}
-        >
+      >
         <div>
           <label
             className="disabled:opacity-50 text-white block text-sm font-medium mb-1"
